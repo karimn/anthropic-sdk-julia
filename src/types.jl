@@ -1,4 +1,5 @@
 using StructTypes
+using JSON3
 
 # Define Optional type alias for cleaner code
 const Optional{T} = Union{T, Nothing}
@@ -194,14 +195,14 @@ end
 struct ContentBlockStart
     type::String
     index::Int
-    content_block::Dict{String, Any}
+    content_block::Any  # JSON3.Object or Dict
 end
 StructTypes.StructType(::Type{ContentBlockStart}) = StructTypes.Struct()
 
 struct ContentBlockDelta
     type::String
     index::Int
-    delta::Dict{String, Any}
+    delta::Any  # JSON3.Object or Dict
 end
 StructTypes.StructType(::Type{ContentBlockDelta}) = StructTypes.Struct()
 
@@ -210,6 +211,110 @@ struct MessageStartEvent
     message::MessageResponse
 end
 StructTypes.StructType(::Type{MessageStartEvent}) = StructTypes.Struct()
+
+struct ContentBlockStop
+    type::String
+    index::Int
+end
+StructTypes.StructType(::Type{ContentBlockStop}) = StructTypes.Struct()
+
+struct MessageDelta
+    type::String
+    delta::Any  # JSON3.Object or Dict
+    usage::Any  # JSON3.Object or Dict
+end
+StructTypes.StructType(::Type{MessageDelta}) = StructTypes.Struct()
+
+struct MessageStop
+    type::String
+end
+StructTypes.StructType(::Type{MessageStop}) = StructTypes.Struct()
+
+struct PingEvent
+    type::String
+end
+StructTypes.StructType(::Type{PingEvent}) = StructTypes.Struct()
+
+#####
+##### Custom show methods for streaming events
+#####
+
+"""
+Helper function to display field values in a readable format.
+"""
+function _show_field_value(io::IO, value)
+    if value isa JSON3.Object
+        # For nested objects, show type and key fields in a compact format
+        if haskey(value, :type)
+            type_val = value.type
+            if type_val == "text_delta" && haskey(value, :text)
+                # Show text deltas with their content
+                text = String(value.text)
+                if length(text) > 30
+                    print(io, "text_delta(\"", text[1:27], "...\")")
+                else
+                    print(io, "text_delta(\"", text, "\")")
+                end
+            else
+                print(io, type_val, "(...)")
+            end
+        else
+            # Show object with count of fields
+            print(io, "{", length(keys(value)), " fields}")
+        end
+    elseif value isa AbstractString
+        # Show strings with quotes, truncate if too long
+        str = String(value)
+        if length(str) > 50
+            print(io, '"', str[1:47], "...\"")
+        else
+            print(io, '"', str, '"')
+        end
+    elseif value isa AbstractDict
+        print(io, "{", length(value), " fields}")
+    elseif value isa AbstractArray
+        print(io, "[", length(value), " items]")
+    else
+        print(io, value)
+    end
+end
+
+# Show methods for specific event types
+function Base.show(io::IO, event::ContentBlockStart)
+    print(io, "ContentBlockStart(index=", event.index, ", content_block=")
+    _show_field_value(io, event.content_block)
+    print(io, ")")
+end
+
+function Base.show(io::IO, event::ContentBlockDelta)
+    print(io, "ContentBlockDelta(index=", event.index, ", delta=")
+    _show_field_value(io, event.delta)
+    print(io, ")")
+end
+
+function Base.show(io::IO, event::MessageStartEvent)
+    print(io, "MessageStartEvent(message=", event.message.id, ")")
+end
+
+function Base.show(io::IO, event::ContentBlockStop)
+    print(io, "ContentBlockStop(index=", event.index, ")")
+end
+
+function Base.show(io::IO, event::MessageDelta)
+    print(io, "MessageDelta(delta=")
+    _show_field_value(io, event.delta)
+    print(io, ", usage=")
+    _show_field_value(io, event.usage)
+    print(io, ")")
+end
+
+function Base.show(io::IO, event::MessageStop)
+    print(io, "MessageStop()")
+end
+
+function Base.show(io::IO, event::PingEvent)
+    print(io, "Ping()")
+end
 
 #####
 ##### Error Types

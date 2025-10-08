@@ -75,6 +75,13 @@ export Tool, ToolInputSchema
 # Error types
 export AnthropicError
 
+# Streaming event types
+export MessageStartEvent, ContentBlockStart, ContentBlockDelta, ContentBlockStop
+export MessageDelta, MessageStop, PingEvent
+
+# Streaming helpers
+export MessageStream, text_stream, get_final_text
+
 # API functions
 export create, stream, count_tokens
 

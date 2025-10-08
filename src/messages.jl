@@ -175,15 +175,15 @@ function _stream_request(m::Messages, body::Dict)
             stream=true
         )
 
-        buffer = ""
-        for chunk in response.body
-            buffer = string(buffer, String(chunk))
+        buffer = UInt8[]
+        for byte in response.body
+            # HTTP.jl streaming returns individual UInt8 bytes
+            push!(buffer, byte)
 
-            # Process complete lines
-            while occursin("\n", buffer)
-                line_end = findfirst('\n', buffer)
-                line = buffer[1:prevind(buffer, line_end)]
-                buffer = buffer[nextind(buffer, line_end):end]
+            # Process complete lines when we see a newline
+            if byte == UInt8('\n')
+                line = String(buffer[1:end-1])  # Exclude the newline
+                buffer = UInt8[]  # Reset buffer
 
                 # Skip empty lines
                 isempty(strip(line)) && continue
@@ -197,7 +197,33 @@ function _stream_request(m::Messages, body::Dict)
 
                     try
                         event_data = JSON3.read(data_str)
-                        put!(channel, event_data)
+
+                        # Wrap in appropriate event struct based on type
+                        event = if haskey(event_data, :type)
+                            event_type = event_data.type
+                            if event_type == "message_start"
+                                MessageStartEvent(event_type, JSON3.read(JSON3.write(event_data.message), MessageResponse))
+                            elseif event_type == "content_block_start"
+                                ContentBlockStart(event_type, event_data.index, event_data.content_block)
+                            elseif event_type == "content_block_delta"
+                                ContentBlockDelta(event_type, event_data.index, event_data.delta)
+                            elseif event_type == "content_block_stop"
+                                ContentBlockStop(event_type, event_data.index)
+                            elseif event_type == "message_delta"
+                                MessageDelta(event_type, event_data.delta, event_data.usage)
+                            elseif event_type == "message_stop"
+                                MessageStop(event_type)
+                            elseif event_type == "ping"
+                                PingEvent(event_type)
+                            else
+                                # For unknown event types, return the raw JSON3.Object
+                                event_data
+                            end
+                        else
+                            event_data
+                        end
+
+                        put!(channel, event)
                     catch e
                         @warn "Failed to parse streaming event" line exception=(e, catch_backtrace())
                     end
@@ -211,20 +237,161 @@ function _stream_request(m::Messages, body::Dict)
 end
 
 """
+    MessageStream
+
+Wrapper around a streaming channel that provides convenience methods for text extraction.
+
+# Fields
+- `channel::Channel`: The underlying event channel
+- `text_buffer::Vector{String}`: Accumulated text content
+
+# Methods
+- `text_stream(stream)`: Iterator that yields only text deltas
+- `get_final_text(stream)`: Consumes stream and returns all text concatenated
+"""
+mutable struct MessageStream
+    channel::Channel
+    text_buffer::Vector{String}
+    final_message::Union{Nothing, MessageResponse}
+
+    MessageStream(channel::Channel) = new(channel, String[], nothing)
+end
+
+"""
+    text_stream(stream::MessageStream)
+
+Returns an iterator that yields only text content from the stream.
+
+# Example
+```julia
+stream = MessageStream(client.messages; model="...", max_tokens=1024, messages=msgs)
+for text in text_stream(stream)
+    print(text)
+end
+```
+"""
+function text_stream(stream::MessageStream)
+    Channel() do ch
+        for event in stream.channel
+            if event isa ContentBlockDelta
+                if haskey(event.delta, :text)
+                    text = String(event.delta.text)
+                    push!(stream.text_buffer, text)
+                    put!(ch, text)
+                end
+            elseif event isa MessageStartEvent
+                stream.final_message = event.message
+            end
+        end
+    end
+end
+
+"""
+    get_final_text(stream::MessageStream)
+
+Consumes the entire stream and returns all text content concatenated.
+
+# Example
+```julia
+stream = MessageStream(client.messages; model="...", max_tokens=1024, messages=msgs)
+text = get_final_text(stream)
+println(text)
+```
+"""
+function get_final_text(stream::MessageStream)
+    for event in stream.channel
+        if event isa ContentBlockDelta && haskey(event.delta, :text)
+            push!(stream.text_buffer, String(event.delta.text))
+        elseif event isa MessageStartEvent
+            stream.final_message = event.message
+        end
+    end
+    return join(stream.text_buffer)
+end
+
+"""
+    MessageStream(messages::Messages; kwargs...) -> MessageStream
+
+Create a MessageStream for convenient text extraction.
+
+# Example - Direct usage
+```julia
+stream = MessageStream(client.messages; model="...", max_tokens=1024, messages=msgs)
+for text in text_stream(stream)
+    print(text)
+end
+```
+
+# Example - Using do-block (Python's with equivalent)
+```julia
+MessageStream(client.messages; model="...", max_tokens=1024, messages=msgs) do stream
+    for text in text_stream(stream)
+        print(text)
+    end
+end
+```
+"""
+function MessageStream(m::Messages; kwargs...)
+    channel = create(m; stream=true, kwargs...)
+    return MessageStream(channel)
+end
+
+"""
+    MessageStream(f::Function, messages::Messages; kwargs...)
+
+Execute a function with a MessageStream using do-block syntax.
+This is Julia's equivalent to Python's `with` statement.
+
+# Example
+```julia
+# Python equivalent:
+# with client.messages.stream(model=..., max_tokens=..., messages=...) as stream:
+#     for text in stream.text_stream:
+#         print(text, end="")
+
+# Julia version:
+MessageStream(client.messages; model=..., max_tokens=..., messages=...) do stream
+    for text in text_stream(stream)
+        print(text)
+    end
+end
+```
+"""
+function MessageStream(f::Function, m::Messages; kwargs...)
+    stream = MessageStream(m; kwargs...)
+    try
+        f(stream)
+    finally
+        # Channel cleanup happens automatically via GC
+        # but we ensure the stream is consumed if needed
+        if isopen(stream.channel)
+            close(stream.channel)
+        end
+    end
+end
+
+"""
     stream(messages::Messages; kwargs...)
+    stream(f::Function, messages::Messages; kwargs...)
 
 Create a streaming message request.
 
+# Version 1: Returns a Channel
 This is a convenience wrapper around `create` with `stream=true`.
 Returns a `Channel` that yields streaming events.
+
+# Version 2: Do-block with MessageStream
+When called with a function (do-block), creates a MessageStream and passes it to the function.
+This is Julia's equivalent to Python's `with` statement.
 
 # Arguments
 Same as `create()`, but `stream=true` is set automatically.
 
 # Returns
-- `Channel`: Yields JSON objects representing streaming events
+- `Channel`: Yields streaming events (Version 1)
+- Result of function call (Version 2)
 
-# Example
+# Example - Basic streaming
 ```julia
 client = Anthropic()
 for event in stream(
@@ -234,8 +401,23 @@ for event in stream(
     messages=[Message("user", "Tell me a story")]
 )
     # Check event type and extract text
-    if haskey(event, :type) && event.type == "content_block_delta"
-        haskey(event, :delta) && haskey(event.delta, :text) && print(event.delta.text)
+    if event isa ContentBlockDelta && haskey(event.delta, :text)
+        print(event.delta.text)
+    end
+end
+```
+
+# Example - Do-block syntax (like Python's with)
+```julia
+# Python:
+# with client.messages.stream(...) as stream:
+#     for text in stream.text_stream:
+#         print(text, end="")
+
+# Julia:
+stream(client.messages; model="...", max_tokens=1024, messages=msgs) do s
+    for text in text_stream(s)
+        print(text)
     end
 end
 ```
@@ -251,4 +433,9 @@ Streaming events include:
 """
 function stream(m::Messages; kwargs...)
     create(m; stream=true, kwargs...)
+end
+
+# Do-block version that creates a MessageStream
+function stream(f::Function, m::Messages; kwargs...)
+    MessageStream(f, m; kwargs...)
 end
