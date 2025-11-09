@@ -1,5 +1,4 @@
-using StructTypes
-using JSON3
+using JSON
 
 # Define Optional type alias for cleaner code
 const Optional{T} = Union{T, Nothing}
@@ -9,16 +8,22 @@ const Optional{T} = Union{T, Nothing}
 #####
 
 abstract type AbstractContent end
-StructTypes.StructType(::Type{AbstractContent}) = StructTypes.AbstractType()
 
-# Tell StructTypes how to discriminate between AbstractContent subtypes
-StructTypes.subtypekey(::Type{AbstractContent}) = :type
-StructTypes.subtypes(::Type{AbstractContent}) = (
-    text = TextContent,
-    image = ImageContent,
-    tool_use = ToolUseContent,
-    tool_result = ToolResultContent
-)
+# Define polymorphic type selection based on the "type" discriminator field
+JSON.@choosetype AbstractContent x -> begin
+    type_val = get(x, "type", nothing)
+    if type_val == "text"
+        TextContent
+    elseif type_val == "image"
+        ImageContent
+    elseif type_val == "tool_use"
+        ToolUseContent
+    elseif type_val == "tool_result"
+        ToolResultContent
+    else
+        error("Unknown AbstractContent type: $type_val")
+    end
+end
 
 #####
 ##### Message Content Types
@@ -28,20 +33,17 @@ struct TextContent <: AbstractContent
     type::String
     text::String
 end
-StructTypes.StructType(::Type{TextContent}) = StructTypes.Struct()
 
 struct ImageSource
     type::String
     media_type::String
     data::String
 end
-StructTypes.StructType(::Type{ImageSource}) = StructTypes.Struct()
 
 struct ImageContent <: AbstractContent
     type::String
     source::ImageSource
 end
-StructTypes.StructType(::Type{ImageContent}) = StructTypes.Struct()
 
 struct ToolUseContent <: AbstractContent
     type::String
@@ -49,14 +51,12 @@ struct ToolUseContent <: AbstractContent
     name::String
     input::Dict{String, Any}
 end
-StructTypes.StructType(::Type{ToolUseContent}) = StructTypes.Struct()
 
 struct ToolResultContent <: AbstractContent
     type::String
     tool_use_id::String
     content::Union{String, Vector{Any}}
 end
-StructTypes.StructType(::Type{ToolResultContent}) = StructTypes.Struct()
 
 #####
 ##### Message Types
@@ -90,7 +90,6 @@ struct Message
     # Constructor that accepts AbstractString for role
     Message(role::AbstractString, content::Union{String, Vector{AbstractContent}}) = new(String(role), content)
 end
-StructTypes.StructType(::Type{Message}) = StructTypes.Struct()
 
 #####
 ##### Tool Definition Types
@@ -111,7 +110,6 @@ struct ToolInputSchema
     properties::Dict{String, Dict{String, String}}
     required::Vector{String}
 end
-StructTypes.StructType(::Type{ToolInputSchema}) = StructTypes.Struct()
 
 # Convenience constructor with default type
 ToolInputSchema(properties::Dict{String, Dict{String, String}}, required::Vector{String}; type::String="object") =
@@ -132,11 +130,10 @@ struct Tool
     description::String
     input_schema::ToolInputSchema
 end
-StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
 
-# Add this constructor
+# Constructor to convert Dict to Tool
 function Tool(d::Dict)
-    JSON3.read(JSON3.write(d), Tool)
+    JSON.parse(JSON.json(d), Tool)
 end
 
 #####
@@ -152,7 +149,6 @@ struct Usage
     input_tokens::Int
     output_tokens::Int
 end
-StructTypes.StructType(::Type{Usage}) = StructTypes.Struct()
 
 # Add convenience method to get total tokens
 Base.:(+)(u::Usage) = u.input_tokens + u.output_tokens
@@ -186,7 +182,6 @@ struct MessageResponse
     stop_sequence::Optional{String}
     usage::Usage
 end
-StructTypes.StructType(::Type{MessageResponse}) = StructTypes.Struct()
 
 """
     CountTokensResponse(input_tokens)
@@ -196,7 +191,6 @@ Response from the count_tokens endpoint.
 struct CountTokensResponse
     input_tokens::Int
 end
-StructTypes.StructType(::Type{CountTokensResponse}) = StructTypes.Struct()
 
 #####
 ##### Streaming Event Types
@@ -210,45 +204,38 @@ end
 struct ContentBlockStart
     type::String
     index::Int
-    content_block::Any  # JSON3.Object or Dict
+    content_block::Any  # Dict from JSON parsing
 end
-StructTypes.StructType(::Type{ContentBlockStart}) = StructTypes.Struct()
 
 struct ContentBlockDelta
     type::String
     index::Int
-    delta::Any  # JSON3.Object or Dict
+    delta::Any  # Dict from JSON parsing
 end
-StructTypes.StructType(::Type{ContentBlockDelta}) = StructTypes.Struct()
 
 struct MessageStartEvent
     type::String
     message::MessageResponse
 end
-StructTypes.StructType(::Type{MessageStartEvent}) = StructTypes.Struct()
 
 struct ContentBlockStop
     type::String
     index::Int
 end
-StructTypes.StructType(::Type{ContentBlockStop}) = StructTypes.Struct()
 
 struct MessageDelta
     type::String
-    delta::Any  # JSON3.Object or Dict
-    usage::Any  # JSON3.Object or Dict
+    delta::Any  # Dict from JSON parsing
+    usage::Any  # Dict from JSON parsing
 end
-StructTypes.StructType(::Type{MessageDelta}) = StructTypes.Struct()
 
 struct MessageStop
     type::String
 end
-StructTypes.StructType(::Type{MessageStop}) = StructTypes.Struct()
 
 struct PingEvent
     type::String
 end
-StructTypes.StructType(::Type{PingEvent}) = StructTypes.Struct()
 
 #####
 ##### Custom show methods for streaming events
@@ -258,13 +245,13 @@ StructTypes.StructType(::Type{PingEvent}) = StructTypes.Struct()
 Helper function to display field values in a readable format.
 """
 function _show_field_value(io::IO, value)
-    if value isa JSON3.Object
+    if value isa AbstractDict
         # For nested objects, show type and key fields in a compact format
-        if haskey(value, :type)
-            type_val = value.type
-            if type_val == "text_delta" && haskey(value, :text)
+        if haskey(value, "type")
+            type_val = value["type"]
+            if type_val == "text_delta" && haskey(value, "text")
                 # Show text deltas with their content
-                text = String(value.text)
+                text = String(value["text"])
                 if length(text) > 30
                     print(io, "text_delta(\"", text[1:27], "...\")")
                 else
@@ -285,8 +272,6 @@ function _show_field_value(io::IO, value)
         else
             print(io, '"', str, '"')
         end
-    elseif value isa AbstractDict
-        print(io, "{", length(value), " fields}")
     elseif value isa AbstractArray
         print(io, "[", length(value), " items]")
     else
