@@ -9,6 +9,16 @@ const Optional{T} = Union{T, Nothing}
 #####
 
 abstract type AbstractContent end
+StructTypes.StructType(::Type{AbstractContent}) = StructTypes.AbstractType()
+
+# Tell StructTypes how to discriminate between AbstractContent subtypes
+StructTypes.subtypekey(::Type{AbstractContent}) = :type
+StructTypes.subtypes(::Type{AbstractContent}) = (
+    text = TextContent,
+    image = ImageContent,
+    tool_use = ToolUseContent,
+    tool_result = ToolResultContent
+)
 
 #####
 ##### Message Content Types
@@ -98,14 +108,14 @@ Schema defining the input parameters for a tool.
 """
 struct ToolInputSchema
     type::String
-    properties::Dict{String, Any}
+    properties::Dict{String, Dict{String, String}}
     required::Vector{String}
-
-    # Convenience constructor with default type
-    ToolInputSchema(properties::Dict{String, Any}, required::Vector{String}; type::String="object") =
-        new(type, properties, required)
 end
 StructTypes.StructType(::Type{ToolInputSchema}) = StructTypes.Struct()
+
+# Convenience constructor with default type
+ToolInputSchema(properties::Dict{String, Dict{String, String}}, required::Vector{String}; type::String="object") =
+    new(type, properties, required)
 
 """
     Tool(name, description, input_schema)
@@ -123,6 +133,11 @@ struct Tool
     input_schema::ToolInputSchema
 end
 StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
+
+# Add this constructor
+function Tool(d::Dict)
+    JSON3.read(JSON3.write(d), Tool)
+end
 
 #####
 ##### Usage Tracking
@@ -165,7 +180,7 @@ struct MessageResponse
     id::String
     type::String
     role::String
-    content::Vector{Any}
+    content::Vector{AbstractContent}
     model::String
     stop_reason::Optional{String}
     stop_sequence::Optional{String}
