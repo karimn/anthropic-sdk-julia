@@ -14,9 +14,9 @@ JSON.@choosetype AbstractContent x -> begin
     # Handle both regular dicts and JSON.LazyValue
     # LazyValue needs JSON.parse to materialize the value
     type_val = if x isa JSON.LazyValue
-        JSON.parse(x["type"])
+        JSON.parse(x["type"], dicttype=Dict{Symbol, Any})
     else
-        get(x, "type", nothing)
+        get(x, :type, nothing)
     end
 
     if type_val == "text"
@@ -56,7 +56,7 @@ struct ToolUseContent <: AbstractContent
     type::String
     id::String
     name::String
-    input::Dict{String, Any}
+    input::Dict{Symbol, Any}
 end
 
 struct ToolResultContent <: AbstractContent
@@ -205,7 +205,7 @@ end
 
 struct StreamEvent
     type::String
-    data::Dict{String, Any}
+    data::Dict{Symbol, Any}
 end
 
 struct ContentBlockStart
@@ -254,11 +254,11 @@ Helper function to display field values in a readable format.
 function _show_field_value(io::IO, value)
     if value isa AbstractDict
         # For nested objects, show type and key fields in a compact format
-        if haskey(value, "type")
-            type_val = value["type"]
-            if type_val == "text_delta" && haskey(value, "text")
+        if haskey(value, :type)
+            type_val = value[:type]
+            if type_val == "text_delta" && haskey(value, :text)
                 # Show text deltas with their content
-                text = String(value["text"])
+                text = String(value[:text])
                 if length(text) > 30
                     print(io, "text_delta(\"", text[1:27], "...\")")
                 else

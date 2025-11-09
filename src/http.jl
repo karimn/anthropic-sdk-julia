@@ -99,9 +99,9 @@ Parse and throw an AnthropicError from an HTTP error response.
 """
 function handle_error_response(response::HTTP.Response)
     try
-        error_data = JSON.parse(String(response.body))
-        error_type = get(error_data, "type", "unknown_error")
-        error_message = get(get(error_data, "error", Dict()), "message", "Unknown error")
+        error_data = JSON.parse(String(response.body), dicttype=Dict{Symbol, Any})
+        error_type = get(error_data, :type, "unknown_error")
+        error_message = get(get(error_data, :error, Dict()), :message, "Unknown error")
         throw(AnthropicError(response.status, error_message, String(error_type)))
     catch e
         e isa AnthropicError && rethrow(e)
@@ -122,5 +122,5 @@ Parse an HTTP response body into a Julia type.
 - Instance of type `T` parsed from the response
 """
 function parse_response(response::HTTP.Response, ::Type{T}) where {T}
-    return JSON.parse(String(response.body), T)
+    return JSON.parse(String(response.body), T, dicttype=Dict{Symbol, Any})
 end
