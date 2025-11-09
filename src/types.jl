@@ -85,10 +85,10 @@ msg = Message("user", [
 """
 struct Message
     role::String
-    content::Union{String, Vector{Any}}
+    content::Union{String, Vector{AbstractContent}}
 
     # Constructor that accepts AbstractString for role
-    Message(role::AbstractString, content) = new(String(role), content)
+    Message(role::AbstractString, content::Union{String, Vector{AbstractContent}}) = new(String(role), content)
 end
 StructTypes.StructType(::Type{Message}) = StructTypes.Struct()
 
