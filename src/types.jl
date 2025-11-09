@@ -12,8 +12,9 @@ abstract type AbstractContent end
 # Define polymorphic type selection based on the "type" discriminator field
 JSON.@choosetype AbstractContent x -> begin
     # Handle both regular dicts and JSON.LazyValue
+    # LazyValue needs JSON.parse to materialize the value
     type_val = if x isa JSON.LazyValue
-        x["type"]
+        JSON.parse(x["type"])
     else
         get(x, "type", nothing)
     end
