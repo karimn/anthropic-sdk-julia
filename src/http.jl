@@ -1,5 +1,5 @@
 using HTTP
-using JSON3
+using JSON
 
 const BASE_URL = "https://api.anthropic.com"
 const DEFAULT_API_VERSION = "2023-06-01"
@@ -66,9 +66,9 @@ function make_request(
     try
         response = if method == "POST"
             if stream
-                HTTP.post(url, headers, JSON3.write(body); stream=true)
+                HTTP.post(url, headers, JSON.json(body); stream=true)
             else
-                HTTP.post(url, headers, JSON3.write(body))
+                HTTP.post(url, headers, JSON.json(body))
             end
         elseif method == "GET"
             HTTP.get(url, headers)
@@ -99,9 +99,9 @@ Parse and throw an AnthropicError from an HTTP error response.
 """
 function handle_error_response(response::HTTP.Response)
     try
-        error_data = JSON3.read(String(response.body))
-        error_type = get(error_data, :type, "unknown_error")
-        error_message = get(get(error_data, :error, Dict()), :message, "Unknown error")
+        error_data = JSON.parse(String(response.body))
+        error_type = get(error_data, "type", "unknown_error")
+        error_message = get(get(error_data, "error", Dict()), "message", "Unknown error")
         throw(AnthropicError(response.status, error_message, String(error_type)))
     catch e
         e isa AnthropicError && rethrow(e)
@@ -122,5 +122,5 @@ Parse an HTTP response body into a Julia type.
 - Instance of type `T` parsed from the response
 """
 function parse_response(response::HTTP.Response, ::Type{T}) where {T}
-    return JSON3.read(String(response.body), T)
+    return StructTypes.constructfrom(T, JSON.parse(String(response.body)))
 end

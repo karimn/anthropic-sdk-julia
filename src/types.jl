@@ -1,5 +1,5 @@
 using StructTypes
-using JSON3
+using JSON
 
 # Define Optional type alias for cleaner code
 const Optional{T} = Union{T, Nothing}
@@ -136,7 +136,7 @@ StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
 
 # Add this constructor
 function Tool(d::Dict)
-    JSON3.read(JSON3.write(d), Tool)
+    StructTypes.constructfrom(Tool, d)
 end
 
 #####
@@ -210,14 +210,14 @@ end
 struct ContentBlockStart
     type::String
     index::Int
-    content_block::Any  # JSON3.Object or Dict
+    content_block::Any  # Dict
 end
 StructTypes.StructType(::Type{ContentBlockStart}) = StructTypes.Struct()
 
 struct ContentBlockDelta
     type::String
     index::Int
-    delta::Any  # JSON3.Object or Dict
+    delta::Any  # Dict
 end
 StructTypes.StructType(::Type{ContentBlockDelta}) = StructTypes.Struct()
 
@@ -235,8 +235,8 @@ StructTypes.StructType(::Type{ContentBlockStop}) = StructTypes.Struct()
 
 struct MessageDelta
     type::String
-    delta::Any  # JSON3.Object or Dict
-    usage::Any  # JSON3.Object or Dict
+    delta::Any  # Dict
+    usage::Any  # Dict
 end
 StructTypes.StructType(::Type{MessageDelta}) = StructTypes.Struct()
 
@@ -258,9 +258,9 @@ StructTypes.StructType(::Type{PingEvent}) = StructTypes.Struct()
 Helper function to display field values in a readable format.
 """
 function _show_field_value(io::IO, value)
-    if value isa JSON3.Object
+    if value isa AbstractDict
         # For nested objects, show type and key fields in a compact format
-        if haskey(value, :type)
+        if haskey(value, :type) || haskey(value, "type")
             type_val = value.type
             if type_val == "text_delta" && haskey(value, :text)
                 # Show text deltas with their content
