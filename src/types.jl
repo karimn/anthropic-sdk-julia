@@ -12,7 +12,8 @@ abstract type AbstractContent end
 StructTypes.StructType(::Type{AbstractContent}) = StructTypes.AbstractType()
 
 # Tell StructTypes how to discriminate between AbstractContent subtypes
-StructTypes.subtypekey(::Type{AbstractContent}) = :type
+# Using string key for JSON.jl compatibility (JSON.jl uses string keys, not symbols)
+StructTypes.subtypekey(::Type{AbstractContent}) = "type"
 StructTypes.subtypes(::Type{AbstractContent}) = (
     text = TextContent,
     image = ImageContent,
@@ -260,11 +261,11 @@ Helper function to display field values in a readable format.
 function _show_field_value(io::IO, value)
     if value isa AbstractDict
         # For nested objects, show type and key fields in a compact format
-        if haskey(value, :type) || haskey(value, "type")
-            type_val = value.type
-            if type_val == "text_delta" && haskey(value, :text)
+        if haskey(value, "type")
+            type_val = get(value, "type", nothing)
+            if type_val == "text_delta" && haskey(value, "text")
                 # Show text deltas with their content
-                text = String(value.text)
+                text = String(get(value, "text", ""))
                 if length(text) > 30
                     print(io, "text_delta(\"", text[1:27], "...\")")
                 else
