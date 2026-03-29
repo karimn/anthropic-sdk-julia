@@ -1,0 +1,5 @@
+[deps]
+Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
+AnthropicSDK = "71e66b3f-936e-4657-b72b-71f450ab081a"
+JSON = "682c06a0-de6a-54ab-a142-c8b1cf79cde6"
+StructTypes = "856f2bd8-1eba-4b0a-8007-ebc267875bd4"
