@@ -25,8 +25,8 @@ for event in stream(
     max_tokens=1024,
     messages=[Message("user", "Tell me a story")]
 )
-    if haskey(event, :type) && event.type == "content_block_delta"
-        haskey(event.delta, :text) && print(event.delta.text)
+    if event isa ContentBlockDelta && haskey(event.delta, "text")
+        print(event.delta["text"])
     end
 end
 ```

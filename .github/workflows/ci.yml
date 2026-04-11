@@ -28,6 +28,9 @@ jobs:
           # Exclude nightly on Windows to reduce CI time
           - os: windows-latest
             version: 'nightly'
+          # Julia 1.6 has no ARM binaries; macos-latest runners are Apple Silicon
+          - os: macos-latest
+            version: '1.6'
 
     steps:
       - uses: actions/checkout@v4

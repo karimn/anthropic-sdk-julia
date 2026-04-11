@@ -1,5 +1,6 @@
 using HTTP
 using JSON
+using StructTypes
 
 const BASE_URL = "https://api.anthropic.com"
 const DEFAULT_API_VERSION = "2023-06-01"

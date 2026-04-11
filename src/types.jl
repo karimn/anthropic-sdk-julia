@@ -116,7 +116,7 @@ StructTypes.StructType(::Type{ToolInputSchema}) = StructTypes.Struct()
 
 # Convenience constructor with default type
 ToolInputSchema(properties::Dict{String, Dict{String, String}}, required::Vector{String}; type::String="object") =
-    new(type, properties, required)
+    ToolInputSchema(type, properties, required)
 
 """
     Tool(name, description, input_schema)
