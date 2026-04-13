@@ -1,5 +1,4 @@
 using StructTypes
-using JSON
 
 # Define Optional type alias for cleaner code
 const Optional{T} = Union{T, Nothing}
@@ -286,8 +285,6 @@ function _show_field_value(io::IO, value)
         else
             print(io, '"', str, '"')
         end
-    elseif value isa AbstractDict
-        print(io, "{", length(value), " fields}")
     elseif value isa AbstractArray
         print(io, "[", length(value), " items]")
     else

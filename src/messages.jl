@@ -1,4 +1,5 @@
 using JSON
+using StructTypes
 
 """
     Messages(api_key, api_version)
@@ -401,8 +402,8 @@ for event in stream(
     messages=[Message("user", "Tell me a story")]
 )
     # Check event type and extract text
-    if event isa ContentBlockDelta && haskey(event.delta, :text)
-        print(event.delta.text)
+    if event isa ContentBlockDelta && haskey(event.delta, "text")
+        print(event.delta["text"])
     end
 end
 ```
