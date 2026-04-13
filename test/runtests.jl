@@ -172,7 +172,7 @@ using StructTypes
 
     @testset "Streaming Event Types" begin
         # Test ContentBlockDelta with string keys (JSON.jl style)
-        delta_dict = Dict("type" => "text_delta", "text" => "Hello")
+        delta_dict = Dict{String, Any}("type" => "text_delta", "text" => "Hello")
         delta_event = ContentBlockDelta("content_block_delta", 0, delta_dict)
 
         @test delta_event.type == "content_block_delta"
@@ -181,7 +181,7 @@ using StructTypes
         @test delta_event.delta["text"] == "Hello"
 
         # Test ContentBlockStart
-        block_dict = Dict("type" => "text", "text" => "")
+        block_dict = Dict{String, Any}("type" => "text", "text" => "")
         start_event = ContentBlockStart("content_block_start", 0, block_dict)
 
         @test start_event.type == "content_block_start"
@@ -218,7 +218,7 @@ using StructTypes
             "test_tool",
             "A test tool",
             ToolInputSchema(
-                Dict("param" => Dict("type" => "string", "description" => "A param")),
+                Dict{String, Any}("param" => Dict("type" => "string", "description" => "A param")),
                 ["param"]
             )
         )

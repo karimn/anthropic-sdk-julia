@@ -211,7 +211,7 @@ function _stream_request(m::Messages, body::Dict)
                             elseif event_type == "content_block_stop"
                                 ContentBlockStop(event_type, event_data["index"])
                             elseif event_type == "message_delta"
-                                MessageDelta(event_type, event_data["delta"], event_data["usage"])
+                                MessageDelta(event_type, event_data["delta"], StructTypes.constructfrom(Usage, event_data["usage"]))
                             elseif event_type == "message_stop"
                                 MessageStop(event_type)
                             elseif event_type == "ping"

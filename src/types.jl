@@ -108,13 +108,13 @@ Schema defining the input parameters for a tool.
 """
 struct ToolInputSchema
     type::String
-    properties::Dict{String, Dict{String, String}}
+    properties::Dict{String, Any}
     required::Vector{String}
 end
 StructTypes.StructType(::Type{ToolInputSchema}) = StructTypes.Struct()
 
 # Convenience constructor with default type
-ToolInputSchema(properties::Dict{String, Dict{String, String}}, required::Vector{String}; type::String="object") =
+ToolInputSchema(properties::Dict{String, Any}, required::Vector{String}; type::String="object") =
     ToolInputSchema(type, properties, required)
 
 """
@@ -210,14 +210,14 @@ end
 struct ContentBlockStart
     type::String
     index::Int
-    content_block::Any  # Dict
+    content_block::Dict{String, Any}
 end
 StructTypes.StructType(::Type{ContentBlockStart}) = StructTypes.Struct()
 
 struct ContentBlockDelta
     type::String
     index::Int
-    delta::Any  # Dict
+    delta::Dict{String, Any}
 end
 StructTypes.StructType(::Type{ContentBlockDelta}) = StructTypes.Struct()
 
@@ -235,8 +235,8 @@ StructTypes.StructType(::Type{ContentBlockStop}) = StructTypes.Struct()
 
 struct MessageDelta
     type::String
-    delta::Any  # Dict
-    usage::Any  # Dict
+    delta::Dict{String, Any}
+    usage::Usage
 end
 StructTypes.StructType(::Type{MessageDelta}) = StructTypes.Struct()
 
