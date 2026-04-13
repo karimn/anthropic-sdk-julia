@@ -159,7 +159,7 @@ using StructTypes
 
         @test usage.input_tokens == 100
         @test usage.output_tokens == 50
-        @test +(usage) == 150  # Test custom + operator
+        @test total_tokens(usage) == 150
     end
 
     @testset "CountTokensResponse" begin

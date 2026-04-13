@@ -154,8 +154,8 @@ struct Usage
 end
 StructTypes.StructType(::Type{Usage}) = StructTypes.Struct()
 
-# Add convenience method to get total tokens
-Base.:(+)(u::Usage) = u.input_tokens + u.output_tokens
+# Return total token count across input and output
+total_tokens(u::Usage) = u.input_tokens + u.output_tokens
 
 #####
 ##### Response Types

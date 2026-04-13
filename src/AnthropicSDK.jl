@@ -64,6 +64,7 @@ export Anthropic
 
 # Core types
 export Message, MessageResponse, Usage, CountTokensResponse
+export total_tokens
 
 # Content types
 export AbstractContent, TextContent, ImageContent, ImageSource
