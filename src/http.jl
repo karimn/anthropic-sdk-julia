@@ -106,7 +106,7 @@ function handle_error_response(response::HTTP.Response)
         throw(AnthropicError(response.status, error_message, String(error_type)))
     catch e
         e isa AnthropicError && rethrow(e)
-        throw(AnthropicError(response.status, "Failed to parse error response", "unknown_error"))
+        throw(AnthropicError(response.status, "Failed to parse error response: $e", "parse_error"))
     end
 end
 

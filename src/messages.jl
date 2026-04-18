@@ -202,22 +202,22 @@ function _stream_request(m::Messages, body::Dict)
                         # Wrap in appropriate event struct based on type
                         event = if haskey(event_data, "type")
                             event_type = event_data["type"]
-                            if event_type == "message_start"
+                            if event_type == "message_start" && haskey(event_data, "message")
                                 MessageStartEvent(event_type, StructTypes.constructfrom(MessageResponse, _sym_dict(event_data["message"])))
-                            elseif event_type == "content_block_start"
+                            elseif event_type == "content_block_start" && haskey(event_data, "index") && haskey(event_data, "content_block")
                                 ContentBlockStart(event_type, event_data["index"], event_data["content_block"])
-                            elseif event_type == "content_block_delta"
+                            elseif event_type == "content_block_delta" && haskey(event_data, "index") && haskey(event_data, "delta")
                                 ContentBlockDelta(event_type, event_data["index"], event_data["delta"])
-                            elseif event_type == "content_block_stop"
+                            elseif event_type == "content_block_stop" && haskey(event_data, "index")
                                 ContentBlockStop(event_type, event_data["index"])
-                            elseif event_type == "message_delta"
+                            elseif event_type == "message_delta" && haskey(event_data, "delta") && haskey(event_data, "usage")
                                 MessageDelta(event_type, event_data["delta"], StructTypes.constructfrom(Usage, _sym_dict(event_data["usage"])))
                             elseif event_type == "message_stop"
                                 MessageStop(event_type)
                             elseif event_type == "ping"
                                 PingEvent(event_type)
                             else
-                                # For unknown event types, return the raw Dict
+                                # For unknown or malformed event types, return the raw Dict
                                 event_data
                             end
                         else
@@ -226,7 +226,11 @@ function _stream_request(m::Messages, body::Dict)
 
                         put!(channel, event)
                     catch e
-                        @warn "Failed to parse streaming event" line exception=(e, catch_backtrace())
+                        if e isa JSON.ParseError
+                            @warn "Failed to parse SSE JSON" line exception=(e, catch_backtrace())
+                        else
+                            rethrow(e)
+                        end
                     end
                 elseif startswith(line, "event: ")
                     # Event type line - currently unused but could be processed
