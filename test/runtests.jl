@@ -143,18 +143,15 @@ using StructTypes
     end
 
     @testset "Tool Construction from Dict" begin
-        tool_dict = Dict{Symbol,Any}(
-            :name => "get_weather",
-            :description => "Get weather for a location",
-            :input_schema => Dict{Symbol,Any}(
-                :type => "object",
-                :properties => Dict{String,Any}(
-                    "location" => Dict{String,Any}(
-                        "type" => "string",
-                        "description" => "City name"
-                    )
+        tool_dict = Dict{String, Any}(
+            "name" => "get_weather",
+            "description" => "Get weather for a location",
+            "input_schema" => Dict{String, Any}(
+                "type" => "object",
+                "properties" => Dict{String, Any}(
+                    "location" => Dict("type" => "string", "description" => "City name")
                 ),
-                :required => ["location"]
+                "required" => ["location"]
             )
         )
 

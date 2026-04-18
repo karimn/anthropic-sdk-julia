@@ -134,9 +134,9 @@ struct Tool
 end
 StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
 
-# Add this constructor
-function Tool(d::Dict)
-    StructTypes.constructfrom(Tool, d)
+# Construct a Tool from a string-keyed Dict (e.g. from JSON.parse)
+function Tool(d::Dict{String, Any})
+    StructTypes.constructfrom(Tool, _sym_dict(d))
 end
 
 #####
@@ -327,6 +327,20 @@ end
 
 function Base.show(io::IO, event::PingEvent)
     print(io, "Ping()")
+end
+
+"""
+Recursively convert a Dict{String,Any} (from JSON.jl) to Dict{Symbol,Any}
+so that StructTypes.constructfrom can look up fields by Symbol key.
+"""
+function _sym_dict(val)
+    if val isa Dict{String, Any}
+        Dict{Symbol, Any}(Symbol(k) => _sym_dict(v) for (k, v) in val)
+    elseif val isa Vector
+        map(_sym_dict, val)
+    else
+        val
+    end
 end
 
 #####
