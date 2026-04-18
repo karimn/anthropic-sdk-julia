@@ -111,6 +111,20 @@ function handle_error_response(response::HTTP.Response)
 end
 
 """
+Recursively convert a Dict{String,Any} (from JSON.jl) to Dict{Symbol,Any}
+so that StructTypes.constructfrom can look up fields by Symbol key.
+"""
+function _sym_dict(val)
+    if val isa Dict{String, Any}
+        Dict{Symbol, Any}(Symbol(k) => _sym_dict(v) for (k, v) in val)
+    elseif val isa Vector
+        map(_sym_dict, val)
+    else
+        val
+    end
+end
+
+"""
     parse_response(response, T)
 
 Parse an HTTP response body into a Julia type.
@@ -123,5 +137,9 @@ Parse an HTTP response body into a Julia type.
 - Instance of type `T` parsed from the response
 """
 function parse_response(response::HTTP.Response, ::Type{T}) where {T}
-    return StructTypes.constructfrom(T, JSON.parse(String(response.body)))
+    try
+        return StructTypes.constructfrom(T, _sym_dict(JSON.parse(String(response.body))))
+    catch e
+        throw(AnthropicError(response.status, "Failed to parse response body as $T: $e", "parse_error"))
+    end
 end

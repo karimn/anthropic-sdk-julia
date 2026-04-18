@@ -23,7 +23,7 @@ using StructTypes
         }
         """
 
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         content = StructTypes.constructfrom(TextContent, parsed)
 
         @test content isa TextContent
@@ -43,7 +43,7 @@ using StructTypes
         }
         """
 
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         content = StructTypes.constructfrom(ImageContent, parsed)
 
         @test content isa ImageContent
@@ -64,14 +64,14 @@ using StructTypes
         }
         """
 
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         content = StructTypes.constructfrom(ToolUseContent, parsed)
 
         @test content isa ToolUseContent
         @test content.type == "tool_use"
         @test content.id == "toolu_123"
         @test content.name == "get_weather"
-        @test content.input["location"] == "San Francisco"
+        @test content.input[:location] == "San Francisco"
     end
 
     @testset "AbstractContent Polymorphic Deserialization" begin
@@ -79,8 +79,8 @@ using StructTypes
         text_json = """{"type": "text", "text": "Hello"}"""
         tool_json = """{"type": "tool_use", "id": "t1", "name": "tool", "input": {}}"""
 
-        text_parsed = JSON.parse(text_json)
-        tool_parsed = JSON.parse(tool_json)
+        text_parsed = JSON.parse(text_json, dicttype=Dict{Symbol,Any})
+        tool_parsed = JSON.parse(tool_json, dicttype=Dict{Symbol,Any})
 
         text_content = StructTypes.constructfrom(AbstractContent, text_parsed)
         tool_content = StructTypes.constructfrom(AbstractContent, tool_parsed)
@@ -111,7 +111,7 @@ using StructTypes
         }
         """
 
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         response = StructTypes.constructfrom(MessageResponse, parsed)
 
         @test response.id == "msg_123abc"
@@ -128,18 +128,18 @@ using StructTypes
     end
 
     @testset "Tool Construction from Dict" begin
-        tool_dict = Dict(
-            "name" => "get_weather",
-            "description" => "Get weather for a location",
-            "input_schema" => Dict(
-                "type" => "object",
-                "properties" => Dict(
-                    "location" => Dict(
+        tool_dict = Dict{Symbol,Any}(
+            :name => "get_weather",
+            :description => "Get weather for a location",
+            :input_schema => Dict{Symbol,Any}(
+                :type => "object",
+                :properties => Dict{String,Any}(
+                    "location" => Dict{String,Any}(
                         "type" => "string",
                         "description" => "City name"
                     )
                 ),
-                "required" => ["location"]
+                :required => ["location"]
             )
         )
 
@@ -154,7 +154,7 @@ using StructTypes
 
     @testset "Usage Tracking" begin
         json_str = """{"input_tokens": 100, "output_tokens": 50}"""
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         usage = StructTypes.constructfrom(Usage, parsed)
 
         @test usage.input_tokens == 100
@@ -164,7 +164,7 @@ using StructTypes
 
     @testset "CountTokensResponse" begin
         json_str = """{"input_tokens": 42}"""
-        parsed = JSON.parse(json_str)
+        parsed = JSON.parse(json_str, dicttype=Dict{Symbol,Any})
         response = StructTypes.constructfrom(CountTokensResponse, parsed)
 
         @test response.input_tokens == 42
@@ -195,7 +195,7 @@ using StructTypes
         @test msg1.content == "Hello"
 
         # Test with vector of content
-        content_blocks = [
+        content_blocks = AbstractContent[
             TextContent("text", "Hello, world!")
         ]
         msg2 = Message("assistant", content_blocks)

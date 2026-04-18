@@ -203,7 +203,7 @@ function _stream_request(m::Messages, body::Dict)
                         event = if haskey(event_data, "type")
                             event_type = event_data["type"]
                             if event_type == "message_start"
-                                MessageStartEvent(event_type, StructTypes.constructfrom(MessageResponse, event_data["message"]))
+                                MessageStartEvent(event_type, StructTypes.constructfrom(MessageResponse, _sym_dict(event_data["message"])))
                             elseif event_type == "content_block_start"
                                 ContentBlockStart(event_type, event_data["index"], event_data["content_block"])
                             elseif event_type == "content_block_delta"

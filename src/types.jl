@@ -11,8 +11,8 @@ abstract type AbstractContent end
 StructTypes.StructType(::Type{AbstractContent}) = StructTypes.AbstractType()
 
 # Tell StructTypes how to discriminate between AbstractContent subtypes
-# Using string key for JSON.jl compatibility (JSON.jl uses string keys, not symbols)
-StructTypes.subtypekey(::Type{AbstractContent}) = "type"
+# StructTypes.AbstractType dispatch requires Symbol key
+StructTypes.subtypekey(::Type{AbstractContent}) = :type
 StructTypes.subtypes(::Type{AbstractContent}) = (
     text = TextContent,
     image = ImageContent,
@@ -47,7 +47,7 @@ struct ToolUseContent <: AbstractContent
     type::String
     id::String
     name::String
-    input::Dict{String, Any}
+    input::Dict{Symbol, Any}
 end
 StructTypes.StructType(::Type{ToolUseContent}) = StructTypes.Struct()
 
