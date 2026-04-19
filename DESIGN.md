@@ -234,7 +234,7 @@ end
 #### Parametric Types
 ```julia
 function parse_response(response::HTTP.Response, ::Type{T}) where {T}
-    return JSON3.read(String(response.body), T)
+    return StructTypes.constructfrom(T, JSON.parse(String(response.body)))
 end
 ```
 - Type parameter `T` allows compiler optimization

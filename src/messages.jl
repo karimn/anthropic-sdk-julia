@@ -1,4 +1,5 @@
-using JSON3
+using JSON
+using StructTypes
 
 """
     Messages(api_key, api_version)
@@ -196,27 +197,27 @@ function _stream_request(m::Messages, body::Dict)
                     data_str == "[DONE]" && break
 
                     try
-                        event_data = JSON3.read(data_str)
+                        event_data = JSON.parse(data_str)
 
                         # Wrap in appropriate event struct based on type
-                        event = if haskey(event_data, :type)
-                            event_type = event_data.type
-                            if event_type == "message_start"
-                                MessageStartEvent(event_type, JSON3.read(JSON3.write(event_data.message), MessageResponse))
-                            elseif event_type == "content_block_start"
-                                ContentBlockStart(event_type, event_data.index, event_data.content_block)
-                            elseif event_type == "content_block_delta"
-                                ContentBlockDelta(event_type, event_data.index, event_data.delta)
-                            elseif event_type == "content_block_stop"
-                                ContentBlockStop(event_type, event_data.index)
-                            elseif event_type == "message_delta"
-                                MessageDelta(event_type, event_data.delta, event_data.usage)
+                        event = if haskey(event_data, "type")
+                            event_type = event_data["type"]
+                            if event_type == "message_start" && haskey(event_data, "message")
+                                MessageStartEvent(event_type, StructTypes.constructfrom(MessageResponse, _sym_dict(event_data["message"])))
+                            elseif event_type == "content_block_start" && haskey(event_data, "index") && haskey(event_data, "content_block")
+                                ContentBlockStart(event_type, event_data["index"], event_data["content_block"])
+                            elseif event_type == "content_block_delta" && haskey(event_data, "index") && haskey(event_data, "delta")
+                                ContentBlockDelta(event_type, event_data["index"], event_data["delta"])
+                            elseif event_type == "content_block_stop" && haskey(event_data, "index")
+                                ContentBlockStop(event_type, event_data["index"])
+                            elseif event_type == "message_delta" && haskey(event_data, "delta") && haskey(event_data, "usage")
+                                MessageDelta(event_type, event_data["delta"], StructTypes.constructfrom(Usage, _sym_dict(event_data["usage"])))
                             elseif event_type == "message_stop"
                                 MessageStop(event_type)
                             elseif event_type == "ping"
                                 PingEvent(event_type)
                             else
-                                # For unknown event types, return the raw JSON3.Object
+                                # For unknown or malformed event types, return the raw Dict
                                 event_data
                             end
                         else
@@ -225,7 +226,11 @@ function _stream_request(m::Messages, body::Dict)
 
                         put!(channel, event)
                     catch e
-                        @warn "Failed to parse streaming event" line exception=(e, catch_backtrace())
+                        if e isa JSON.ParseError
+                            @warn "Failed to parse SSE JSON" line exception=(e, catch_backtrace())
+                        else
+                            rethrow(e)
+                        end
                     end
                 elseif startswith(line, "event: ")
                     # Event type line - currently unused but could be processed
@@ -274,8 +279,8 @@ function text_stream(stream::MessageStream)
     Channel() do ch
         for event in stream.channel
             if event isa ContentBlockDelta
-                if haskey(event.delta, :text)
-                    text = String(event.delta.text)
+                if haskey(event.delta, "text")
+                    text = String(event.delta["text"])
                     push!(stream.text_buffer, text)
                     put!(ch, text)
                 end
@@ -300,8 +305,8 @@ println(text)
 """
 function get_final_text(stream::MessageStream)
     for event in stream.channel
-        if event isa ContentBlockDelta && haskey(event.delta, :text)
-            push!(stream.text_buffer, String(event.delta.text))
+        if event isa ContentBlockDelta && haskey(event.delta, "text")
+            push!(stream.text_buffer, String(event.delta["text"]))
         elseif event isa MessageStartEvent
             stream.final_message = event.message
         end
@@ -401,8 +406,8 @@ for event in stream(
     messages=[Message("user", "Tell me a story")]
 )
     # Check event type and extract text
-    if event isa ContentBlockDelta && haskey(event.delta, :text)
-        print(event.delta.text)
+    if event isa ContentBlockDelta && haskey(event.delta, "text")
+        print(event.delta["text"])
     end
 end
 ```

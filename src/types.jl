@@ -1,5 +1,4 @@
 using StructTypes
-using JSON3
 
 # Define Optional type alias for cleaner code
 const Optional{T} = Union{T, Nothing}
@@ -12,6 +11,7 @@ abstract type AbstractContent end
 StructTypes.StructType(::Type{AbstractContent}) = StructTypes.AbstractType()
 
 # Tell StructTypes how to discriminate between AbstractContent subtypes
+# StructTypes.AbstractType dispatch requires Symbol key
 StructTypes.subtypekey(::Type{AbstractContent}) = :type
 StructTypes.subtypes(::Type{AbstractContent}) = (
     text = TextContent,
@@ -47,7 +47,7 @@ struct ToolUseContent <: AbstractContent
     type::String
     id::String
     name::String
-    input::Dict{String, Any}
+    input::Dict{Symbol, Any}
 end
 StructTypes.StructType(::Type{ToolUseContent}) = StructTypes.Struct()
 
@@ -108,14 +108,14 @@ Schema defining the input parameters for a tool.
 """
 struct ToolInputSchema
     type::String
-    properties::Dict{String, Dict{String, String}}
+    properties::Dict{String, Any}
     required::Vector{String}
 end
 StructTypes.StructType(::Type{ToolInputSchema}) = StructTypes.Struct()
 
 # Convenience constructor with default type
-ToolInputSchema(properties::Dict{String, Dict{String, String}}, required::Vector{String}; type::String="object") =
-    new(type, properties, required)
+ToolInputSchema(properties::Dict{String, Any}, required::Vector{String}; type::String="object") =
+    ToolInputSchema(type, properties, required)
 
 """
     Tool(name, description, input_schema)
@@ -134,9 +134,9 @@ struct Tool
 end
 StructTypes.StructType(::Type{Tool}) = StructTypes.Struct()
 
-# Add this constructor
-function Tool(d::Dict)
-    JSON3.read(JSON3.write(d), Tool)
+# Construct a Tool from a string-keyed Dict (e.g. from JSON.parse)
+function Tool(d::Dict{String, Any})
+    StructTypes.constructfrom(Tool, _sym_dict(d))
 end
 
 #####
@@ -154,8 +154,8 @@ struct Usage
 end
 StructTypes.StructType(::Type{Usage}) = StructTypes.Struct()
 
-# Add convenience method to get total tokens
-Base.:(+)(u::Usage) = u.input_tokens + u.output_tokens
+# Return total token count across input and output
+total_tokens(u::Usage) = u.input_tokens + u.output_tokens
 
 #####
 ##### Response Types
@@ -210,14 +210,14 @@ end
 struct ContentBlockStart
     type::String
     index::Int
-    content_block::Any  # JSON3.Object or Dict
+    content_block::Dict{String, Any}
 end
 StructTypes.StructType(::Type{ContentBlockStart}) = StructTypes.Struct()
 
 struct ContentBlockDelta
     type::String
     index::Int
-    delta::Any  # JSON3.Object or Dict
+    delta::Dict{String, Any}
 end
 StructTypes.StructType(::Type{ContentBlockDelta}) = StructTypes.Struct()
 
@@ -235,8 +235,8 @@ StructTypes.StructType(::Type{ContentBlockStop}) = StructTypes.Struct()
 
 struct MessageDelta
     type::String
-    delta::Any  # JSON3.Object or Dict
-    usage::Any  # JSON3.Object or Dict
+    delta::Dict{String, Any}
+    usage::Usage
 end
 StructTypes.StructType(::Type{MessageDelta}) = StructTypes.Struct()
 
@@ -258,13 +258,13 @@ StructTypes.StructType(::Type{PingEvent}) = StructTypes.Struct()
 Helper function to display field values in a readable format.
 """
 function _show_field_value(io::IO, value)
-    if value isa JSON3.Object
+    if value isa AbstractDict
         # For nested objects, show type and key fields in a compact format
-        if haskey(value, :type)
-            type_val = value.type
-            if type_val == "text_delta" && haskey(value, :text)
+        if haskey(value, "type")
+            type_val = get(value, "type", nothing)
+            if type_val == "text_delta" && haskey(value, "text")
                 # Show text deltas with their content
-                text = String(value.text)
+                text = String(get(value, "text", ""))
                 if length(text) > 30
                     print(io, "text_delta(\"", text[1:27], "...\")")
                 else
@@ -285,8 +285,6 @@ function _show_field_value(io::IO, value)
         else
             print(io, '"', str, '"')
         end
-    elseif value isa AbstractDict
-        print(io, "{", length(value), " fields}")
     elseif value isa AbstractArray
         print(io, "[", length(value), " items]")
     else
@@ -329,6 +327,20 @@ end
 
 function Base.show(io::IO, event::PingEvent)
     print(io, "Ping()")
+end
+
+"""
+Recursively convert a Dict{String,Any} (from JSON.jl) to Dict{Symbol,Any}
+so that StructTypes.constructfrom can look up fields by Symbol key.
+"""
+function _sym_dict(val)
+    if val isa Dict{String, Any}
+        Dict{Symbol, Any}(Symbol(k) => _sym_dict(v) for (k, v) in val)
+    elseif val isa Vector
+        map(_sym_dict, val)
+    else
+        val
+    end
 end
 
 #####
