@@ -1,24 +1,24 @@
 using JSON
 
 """
-    Messages(api_key, api_version)
+    MessagesEndpoint(api_key, api_version)
 
 Interface for the Anthropic Messages API.
 
 This type is typically accessed via `client.messages` rather than constructed directly.
 """
-struct Messages
+struct MessagesEndpoint
     api_key::String
     api_version::String
 end
 
 """
-    create(messages::Messages; model, messages, max_tokens, kwargs...)
+    create(messages::MessagesEndpoint; model, messages, max_tokens, kwargs...)
 
 Create a message using the Anthropic API.
 
 # Arguments
-- `messages::Messages`: Messages API interface (accessed via `client.messages`)
+- `messages::MessagesEndpoint`: Messages API interface (accessed via `client.messages`)
 
 # Required Keyword Arguments
 - `model::AbstractString`: Model identifier (e.g., "claude-sonnet-4-5-20250929")
@@ -63,7 +63,7 @@ response = create(
 ```
 """
 function create(
-    m::Messages;
+    m::MessagesEndpoint;
     model::AbstractString,
     messages::AbstractVector,
     max_tokens::Integer,
@@ -109,12 +109,12 @@ function create(
 end
 
 """
-    count_tokens(messages::Messages; model, messages, kwargs...)
+    count_tokens(messages::MessagesEndpoint; model, messages, kwargs...)
 
 Count tokens in a message without generating a response.
 
 # Arguments
-- `messages::Messages`: Messages API interface
+- `messages::MessagesEndpoint`: Messages API interface
 
 # Required Keyword Arguments
 - `model::AbstractString`: Model identifier
@@ -139,7 +139,7 @@ println("Input tokens: ", token_count.input_tokens)
 ```
 """
 function count_tokens(
-    m::Messages;
+    m::MessagesEndpoint;
     model::AbstractString,
     messages::AbstractVector,
     system::Optional{AbstractString}=nothing,
@@ -164,7 +164,7 @@ function count_tokens(
 end
 
 # Internal function for handling streaming requests
-function _stream_request(m::Messages, body::Dict)
+function _stream_request(m::MessagesEndpoint, body::Dict)
     Channel() do channel
         response = make_request(
             "POST",
@@ -310,7 +310,7 @@ function get_final_text(stream::MessageStream)
 end
 
 """
-    MessageStream(messages::Messages; kwargs...) -> MessageStream
+    MessageStream(messages::MessagesEndpoint; kwargs...) -> MessageStream
 
 Create a MessageStream for convenient text extraction.
 
@@ -331,13 +331,13 @@ MessageStream(client.messages; model="...", max_tokens=1024, messages=msgs) do s
 end
 ```
 """
-function MessageStream(m::Messages; kwargs...)
+function MessageStream(m::MessagesEndpoint; kwargs...)
     channel = create(m; stream=true, kwargs...)
     return MessageStream(channel)
 end
 
 """
-    MessageStream(f::Function, messages::Messages; kwargs...)
+    MessageStream(f::Function, messages::MessagesEndpoint; kwargs...)
 
 Execute a function with a MessageStream using do-block syntax.
 This is Julia's equivalent to Python's `with` statement.
@@ -357,7 +357,7 @@ MessageStream(client.messages; model=..., max_tokens=..., messages=...) do strea
 end
 ```
 """
-function MessageStream(f::Function, m::Messages; kwargs...)
+function MessageStream(f::Function, m::MessagesEndpoint; kwargs...)
     stream = MessageStream(m; kwargs...)
     try
         f(stream)
@@ -371,8 +371,8 @@ function MessageStream(f::Function, m::Messages; kwargs...)
 end
 
 """
-    stream(messages::Messages; kwargs...)
-    stream(f::Function, messages::Messages; kwargs...)
+    stream(messages::MessagesEndpoint; kwargs...)
+    stream(f::Function, messages::MessagesEndpoint; kwargs...)
 
 Create a streaming message request.
 
@@ -431,11 +431,11 @@ Streaming events include:
 - `message_delta`: Message-level updates
 - `message_stop`: Stream complete
 """
-function stream(m::Messages; kwargs...)
+function stream(m::MessagesEndpoint; kwargs...)
     create(m; stream=true, kwargs...)
 end
 
 # Do-block version that creates a MessageStream
-function stream(f::Function, m::Messages; kwargs...)
+function stream(f::Function, m::MessagesEndpoint; kwargs...)
     MessageStream(f, m; kwargs...)
 end

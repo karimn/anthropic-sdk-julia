@@ -11,7 +11,7 @@ Create an Anthropic API client for interacting with Claude models.
 # Fields
 - `api_key::String`: The API key being used
 - `api_version::String`: The API version
-- `messages::Messages`: Interface for the Messages API
+- `messages::MessagesEndpoint`: Interface for the Messages API
 
 # Throws
 - `ErrorException`: If no API key is provided and `ANTHROPIC_API_KEY` is not set
@@ -40,7 +40,7 @@ response = create(
 struct Anthropic
     api_key::String
     api_version::String
-    messages::Messages
+    messages::MessagesEndpoint
 
     function Anthropic(;
         api_key::Optional{AbstractString}=nothing,
@@ -59,7 +59,7 @@ struct Anthropic
         end
 
         # Create Messages interface
-        msgs = Messages(key, String(api_version))
+        msgs = MessagesEndpoint(key, String(api_version))
         new(key, String(api_version), msgs)
     end
 end

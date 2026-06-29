@@ -70,7 +70,8 @@ export AbstractContent, TextContent, ImageContent, ImageSource
 export ToolUseContent, ToolResultContent
 
 # Tool types
-export Tool, ToolInputSchema
+export Tool, ToolInputSchema, BatchedTool
+export execute_tool  # Function to execute tools
 
 # Error types
 export AnthropicError
